@@ -16,6 +16,7 @@ repositories {
 
 dependencies {
     compile 'org.apache.jena:apache-jena-libs:3.0.0'
+    compile 'commons-cli:commons-cli:1.4'
 }
 
 uploadArchives {
