@@ -15,11 +15,12 @@ import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.sparql.util.ModelUtils;
 import org.apache.jena.util.FileManager;
 import org.apache.jena.util.FileUtils;
+import org.apache.log4j.BasicConfigurator;
 import org.schema.SCHEMA;
 
 public class Main {
 	
-	public static void main(String[] args) throws ParseException {
+	public static void main(String[] args) throws ParseException {	     
 		Options opts = new Options()
 			.addOption("h", "help", false, "Display this help.")
 			.addOption("o", "owl", false, "Transform the given schema.org vocabulary into a restrictive OWL ontology.")
