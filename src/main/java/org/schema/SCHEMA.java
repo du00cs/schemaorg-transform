@@ -1,21 +1,10 @@
 package org.schema;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import org.apache.jena.ontology.Individual;
-import org.apache.jena.ontology.OntClass;
-import org.apache.jena.ontology.OntModel;
-import org.apache.jena.ontology.OntModelSpec;
-import org.apache.jena.ontology.OntProperty;
-import org.apache.jena.ontology.UnionClass;
-import org.apache.jena.rdf.model.InfModel;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Property;
@@ -26,16 +15,11 @@ import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.rdf.model.StmtIterator;
-import org.apache.jena.reasoner.ReasonerRegistry;
 import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.vocabulary.OWL;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.apache.jena.vocabulary.XSD;
-
-import sun.reflect.ReflectionFactory.GetReflectionFactoryAction;
-
-import com.sun.xml.internal.fastinfoset.sax.Properties;
 
 public class SCHEMA {
 	
@@ -192,13 +176,15 @@ public class SCHEMA {
     	while (classes.hasNext()) {
     		Resource c = classes.next().getSubject();
 
-    		rdfs.add(c, RDF.type, RDFS.Class);
-    		
-    		StmtIterator statements = c.listProperties(RDFS.subClassOf);
-    		rdfs.add(statements.toList());
-    		
-    		StmtIterator enumeration = xsd.listStatements(null, RDF.type, c);
-			rdfs.add(enumeration.toList());
+    		if (!isDatatype(c)) {
+        		rdfs.add(c, RDF.type, RDFS.Class);
+        		
+        		StmtIterator statements = c.listProperties(RDFS.subClassOf);
+        		rdfs.add(statements.toList());
+        		
+        		StmtIterator enumeration = xsd.listStatements(null, RDF.type, c);
+    			rdfs.add(enumeration.toList());
+    		}
     	}
     	
     	StmtIterator properties = xsd.listStatements(null, RDF.type, RDF.Property);
@@ -225,16 +211,16 @@ public class SCHEMA {
 			ClassSet domainSet = new ClassSet(domain);
     		Resource domainUnion = domainSet.get();
     		rdfs.add(p, RDFS.domain, domainUnion);
-    		rdfs.add(domainUnion, RDF.type, RDFS.Class);
-    		for (Resource c : domain) {
+    		rdfs.add(domainUnion, RDF.type, isDatatype(domainUnion) ? RDFS.Datatype : RDFS.Class);
+    		for (Resource c : domainSet.getSubClasses()) {
     			rdfs.add(c, RDFS.subClassOf, domainUnion);
     		}
-    		
+
 			ClassSet rangeSet = new ClassSet(range);
     		Resource rangeUnion = rangeSet.get();
     		rdfs.add(p, RDFS.range, rangeUnion);
-    		rdfs.add(rangeUnion, RDF.type, RDFS.Class);
-    		for (Resource c : range) {
+    		rdfs.add(rangeUnion, RDF.type, isDatatype(rangeUnion) ? RDFS.Datatype : RDFS.Class);
+    		for (Resource c : rangeSet.getSubClasses()) {
     			rdfs.add(c, RDFS.subClassOf, rangeUnion);
     		}
     	}
@@ -265,6 +251,8 @@ public class SCHEMA {
     	StmtIterator classes = rdfs.listStatements(null, RDF.type, RDFS.Class);
     	while (classes.hasNext()) {
     		Resource c = classes.next().getSubject();
+
+    		owl.add(c, RDF.type, OWL.Class);
 
     		if (rdfs.contains(null, RDFS.subClassOf, c)) {
     			ResIterator subclasses = rdfs.listResourcesWithProperty(RDFS.subClassOf, c);
@@ -315,25 +303,17 @@ public class SCHEMA {
         return owl;
     }
 
+    private static boolean isDatatype(Resource type) {
+    	return type.getURI().startsWith(XSD.getURI()) ||
+    			(type.getModel() != null && type.hasProperty(RDF.type, RDFS.Datatype));
+    }
+    
     private static boolean isDatatypeProperty(Resource property) {
     	return property.listProperties(RDFS.range).filterKeep(new Predicate<Statement>() {
     		public boolean test(Statement t) {
-    			return t.getResource().getURI().startsWith(XSD.getURI());
+    			return isDatatype(t.getResource());
     		}
 		}).hasNext();
-    }
-    
-    private static boolean isDatatype(Resource schemaType) {
-    	return schemaType.equals(Boolean)
-    		|| schemaType.equals(Text)
-    		|| schemaType.equals(URL)
-    		|| schemaType.equals(Number)
-    		|| schemaType.equals(Float)
-    		|| schemaType.equals(Integer)
-    		|| schemaType.equals(Date)
-    		|| schemaType.equals(DateTime)
-    		|| schemaType.equals(Time)
-    		|| schemaType.hasProperty(RDF.type, DataType);
     }
 	
 	public static String getURI() {
