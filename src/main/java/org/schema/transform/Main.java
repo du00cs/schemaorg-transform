@@ -12,6 +12,9 @@ import org.apache.commons.cli.ParseException;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.sparql.util.ModelUtils;
+import org.apache.jena.util.FileManager;
+import org.apache.jena.util.FileUtils;
 import org.schema.SCHEMA;
 
 public class Main {
@@ -25,13 +28,17 @@ public class Main {
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = parser.parse(opts, args);
 		
-		String uri = cmd.getArgList().get(0);
-		Model voc = RDFDataMgr.loadDataset(uri).getDefaultModel();
-		
-		if (cmd.hasOption('+')) {
-			SCHEMA.toOWL(voc).write(System.out);
-		} else if (cmd.hasOption('-')) {
-			SCHEMA.toRDFS(voc).write(System.out);
+		if (cmd.getArgList().size() > 0) {
+			String arg = cmd.getArgList().get(0);
+			Model voc = FileManager.get().loadModel(arg);
+			
+			if (cmd.hasOption('o')) {
+				SCHEMA.toOWL(voc).write(System.out, "Turtle");
+				return;
+			} else if (cmd.hasOption('r')) {
+				SCHEMA.toRDFS(voc).write(System.out, "Turtle");
+				return;
+			}
 		}
 		
 		HelpFormatter help = new HelpFormatter();

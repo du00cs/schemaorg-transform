@@ -24,6 +24,7 @@ import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.rdf.model.StmtIterator;
 import org.apache.jena.util.iterator.ExtendedIterator;
+import org.apache.jena.vocabulary.OWL;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.apache.jena.vocabulary.XSD;
@@ -50,49 +51,41 @@ public class SCHEMA {
 	public static final Property name = ResourceFactory.createProperty(BASE_URI + "name");
 	public static final Property description = ResourceFactory.createProperty(BASE_URI + "description");
 	
-	public static OntModel toRDFS(Model schemaorg) {
-    	OntModel rdfs = ModelFactory.createOntologyModel(OntModelSpec.RDFS_MEM);
-    	
+	public static Model toRDFS(Model schemaorg) {
+    	Model rdfs = ModelFactory.createDefaultModel();
+
     	StmtIterator classes = schemaorg.listStatements(null, RDF.type, RDFS.Class);
     	while (classes.hasNext()) {
-    		Resource next = classes.next().getSubject();
-    		OntClass c = rdfs.createClass(next.getURI());
+    		Resource c = classes.next().getSubject();
+    		rdfs.add(c, RDF.type, RDFS.Class);
     		
-    		StmtIterator statements = next.listProperties();
-    		while (statements.hasNext()) {
-    			Statement st = statements.next();
-    			
-    			if (st.getPredicate().equals(RDFS.subClassOf)) {
-    				c.addSuperClass(st.getResource());
-    			}
-    		}
+    		StmtIterator statements = c.listProperties(RDFS.subClassOf);
+    		rdfs.add(statements.toList());
     		
-    		StmtIterator enumeration = schemaorg.listStatements(null, RDF.type, next);
-    		while (enumeration.hasNext()) {
-    			rdfs.createIndividual(enumeration.next().getSubject().getURI(), c);
-    		}
+    		StmtIterator enumeration = schemaorg.listStatements(null, RDF.type, c);
+			rdfs.add(enumeration.toList());
     	}
     	
     	StmtIterator datatypes = schemaorg.listStatements(null, RDF.type, DataType);
     	while (datatypes.hasNext()) {
     		Resource dt = datatypes.next().getSubject();
-    		rdfs.createClass(dt.getURI()).setRDFType(RDFS.Datatype);
+    		rdfs.add(dt, RDF.type, RDFS.Datatype);
     	}
     	
     	StmtIterator properties = schemaorg.listStatements(null, RDF.type, RDF.Property);
     	while (properties.hasNext()) {
-    		Resource next = properties.next().getSubject();
-    		OntProperty p = rdfs.createOntProperty(next.getURI());
+    		Resource p = properties.next().getSubject();
+    		rdfs.add(p, RDF.type, RDF.Property);
     		
     		List<Resource> domain = new ArrayList<Resource>();
     		List<Resource> range = new ArrayList<Resource>();
     		
-    		StmtIterator statements = next.listProperties();
+    		StmtIterator statements = p.listProperties();
     		while (statements.hasNext()) {
     			Statement st = statements.next();
     			
     			if (st.getPredicate().equals(RDFS.subPropertyOf)) {
-    				p.addSuperProperty((Property) st.getResource()); 
+    				rdfs.add(p, RDFS.subPropertyOf, st.getResource());
     			} else if (st.getPredicate().equals(domainIncludes)) {
     				domain.add(st.getResource());
     			} else if (st.getPredicate().equals(rangeIncludes)) {
@@ -100,16 +93,16 @@ public class SCHEMA {
     			}
     		}
     		
-    		OntClass domainUnion = rdfs.createClass(BASE_URI + getCanonicalName(domain));
-    		p.setDomain(domainUnion);
+    		Resource domainUnion = rdfs.createResource(BASE_URI + getCanonicalName(domain));
+    		rdfs.add(p, RDFS.domain, domainUnion);
     		for (Resource c : domain) {
-    			rdfs.createClass(c.getURI()).addSuperClass(domainUnion);
+    			rdfs.add(c, RDFS.subClassOf, domainUnion);
     		}
     		
-    		OntClass rangeUnion = rdfs.createClass(BASE_URI + getCanonicalName(range));
-    		p.setRange(rangeUnion);
+    		Resource rangeUnion = rdfs.createResource(BASE_URI + getCanonicalName(range));
+    		rdfs.add(p, RDFS.range, rangeUnion);
     		for (Resource c : range) {
-    			rdfs.createClass(c.getURI()).addSuperClass(rangeUnion);
+    			rdfs.add(c, RDFS.subClassOf, rangeUnion);
     		}
     	}
     	
@@ -118,40 +111,38 @@ public class SCHEMA {
     	return rdfs;
 	}
     
-    public static OntModel toOWL(Model schemaorg) {
-    	OntModel owl = ModelFactory.createOntologyModel(OntModelSpec.OWL_DL_MEM);
+    public static Model toOWL(Model schemaorg) {
+    	Model owl = ModelFactory.createDefaultModel();
     	
-    	OntModel rdfs = toRDFS(schemaorg);
+    	Model rdfs = toRDFS(schemaorg);
     	
-    	ExtendedIterator<OntClass> classes = rdfs.listClasses();
+    	StmtIterator classes = rdfs.listStatements(null, RDF.type, RDFS.Class);
     	while (classes.hasNext()) {
-    		OntClass c = classes.next();
-    		
-    		if (c.hasSubClass()) {
-	    		RDFList sc = owl.createList(c.listSubClasses(true));
-	    		owl.createUnionClass(c.getURI(), sc);
+    		Resource c = classes.next().getSubject();
+
+    		if (rdfs.contains(null, RDFS.subClassOf, c)) {
+    			ResIterator subclasses = rdfs.listResourcesWithProperty(RDFS.subClassOf, c);
+	    		RDFList sc = owl.createList(subclasses);
+	    		owl.add(c, OWL.unionOf, sc);
+	    		// TODO make subclasses mutually exclusive
     		} else if (rdfs.contains(null, RDF.type, c)) {
-        		RDFList i = owl.createList(c.listInstances(true));
-        		owl.createEnumeratedClass(c.getURI(), i);
+    			ResIterator instances = rdfs.listResourcesWithProperty(RDF.type, c);
+        		RDFList i = owl.createList(instances);
+        		owl.add(c, OWL.oneOf, i);
     		}
     	}
     	
-    	ExtendedIterator<OntProperty> properties = rdfs.listOntProperties();
+    	ExtendedIterator<Statement> properties = rdfs.listStatements(null, RDF.type, RDF.Property);
     	while (properties.hasNext()) {
-    		OntProperty next = properties.next();
-    		OntProperty p = next.getRange().hasRDFType(RDFS.Datatype) ?
-    			owl.createDatatypeProperty(next.getURI()) :
-    			owl.createObjectProperty(next.getURI());
+    		Resource p = properties.next().getSubject();
     		
-    		p.setDomain(next.getDomain());
-    		p.setRange(toXSD(p.getRange()));
+    		owl.add(p.listProperties(RDFS.domain));
+    		owl.add(p.listProperties(RDFS.range)); // TODO XSD convertion
     		
-    		if (next.hasProperty(inverseOf)) {
-    			p.setInverseOf((Property) next.getPropertyResourceValue(inverseOf));
-    		}
-    		
-    		if (next.hasProperty(RDFS.subPropertyOf)) {
-    			p.setSuperProperty((Property) next.getPropertyResourceValue(RDFS.subPropertyOf));
+    		owl.add(p.listProperties(RDFS.subPropertyOf));
+
+    		if (p.hasProperty(inverseOf)) {
+    			owl.add(p, OWL.inverseOf, p.getPropertyResourceValue(inverseOf));
     		}
     	}
 
