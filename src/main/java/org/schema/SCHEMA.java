@@ -62,6 +62,9 @@ public class SCHEMA {
 		Model xsd = ModelFactory.createDefaultModel();
 		Model toRemove = ModelFactory.createDefaultModel();
 		
+		// process data types: schema:Boolean, schema:Text, schema:URL, schema:Number,
+		// schema:Float, schema:Integer, schema:Date, schema:DateTime, schema:Time
+		
 		StmtIterator datatypes = schemaorg.listStatements(null, RDF.type, DataType);
 		while (datatypes.hasNext()) {
 			Statement st = datatypes.next();
@@ -171,6 +174,8 @@ public class SCHEMA {
     	Model rdfs = ModelFactory.createDefaultModel();
     	
     	Model xsd = toXSD(schemaorg);
+    	
+    	// process classes: rdf:type, rdfs:subClassOf
 
     	StmtIterator classes = xsd.listStatements(null, RDF.type, RDFS.Class);
     	while (classes.hasNext()) {
@@ -186,6 +191,9 @@ public class SCHEMA {
     			rdfs.add(enumeration.toList());
     		}
     	}
+
+    	// process properties: rdf:type, rdfs:subPropertyOf,
+    	// schema:domainIncludes, schema:rangeIncludes
     	
     	StmtIterator properties = xsd.listStatements(null, RDF.type, RDF.Property);
     	while (properties.hasNext()) {
@@ -248,7 +256,11 @@ public class SCHEMA {
     	
     	Model rdfs = toRDFS(schemaorg);
     	
+    	// process classes: rdf:type, owl:disjointUnionOf, owl:oneOf
+    	
     	StmtIterator classes = rdfs.listStatements(null, RDF.type, RDFS.Class);
+    	// note: owl:disjointUnionOf not defined in OWL package?
+    	final Property disjointUnionOf = ResourceFactory.createProperty(OWL.getURI(), "disjointUnionOf");
     	while (classes.hasNext()) {
     		Resource c = classes.next().getSubject();
 
@@ -257,14 +269,15 @@ public class SCHEMA {
     		if (rdfs.contains(null, RDFS.subClassOf, c)) {
     			ResIterator subclasses = rdfs.listResourcesWithProperty(RDFS.subClassOf, c);
 	    		RDFList sc = owl.createList(subclasses);
-	    		owl.add(c, OWL.unionOf, sc);
-	    		// TODO make subclasses mutually exclusive
+	    		owl.add(c, disjointUnionOf, sc);
     		} else if (rdfs.contains(null, RDF.type, c)) {
     			ResIterator instances = rdfs.listResourcesWithProperty(RDF.type, c);
         		RDFList i = owl.createList(instances);
         		owl.add(c, OWL.oneOf, i);
     		}
     	}
+    	
+    	// process properties: owl:DatatypeProperty, owl:ObjectProperty, owl:inverseOf
     	
     	ExtendedIterator<Statement> properties = rdfs.listStatements(null, RDF.type, RDF.Property);
     	while (properties.hasNext()) {
@@ -286,6 +299,8 @@ public class SCHEMA {
     		}
     	}
 
+    	// Holger Knublauch's original mapping:
+    	//
         // schema:Thing has been mapped to owl:Thing
         // schema:name has been mapped to rdfs:label
         // schema:description has been mapped to rdfs:comment
