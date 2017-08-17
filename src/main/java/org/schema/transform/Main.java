@@ -23,8 +23,9 @@ public class Main {
 	public static void main(String[] args) throws ParseException {	     
 		Options opts = new Options()
 			.addOption("h", "help", false, "Display this help.")
-			.addOption("o", "owl", false, "Transform the given schema.org vocabulary into a restrictive OWL ontology.")
-			.addOption("r", "rdfs", false, "Transform the given schema.org vocabulary into an RDFS vocabulary.");
+			.addOption("n", "namespace", true, "Use the given namespace for generated terms.")
+			.addOption("O", "owl", false, "Transform the given schema.org vocabulary into a restrictive OWL ontology.")
+			.addOption("R", "rdfs", false, "Transform the given schema.org vocabulary into an RDFS vocabulary.");
 		
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = parser.parse(opts, args);
@@ -33,11 +34,15 @@ public class Main {
 			String arg = cmd.getArgList().get(0);
 			Model voc = FileManager.get().loadModel(arg);
 			
-			if (cmd.hasOption('o')) {
-				SCHEMA.toOWL(voc).write(System.out, "Turtle");
+			String ns = cmd.hasOption('n') ? cmd.getOptionValue('n') : SCHEMA.getURI();
+			
+			if (cmd.hasOption('O')) {
+				Model owl = SCHEMA.toOWL(voc, ns);
+				owl.write(System.out, "Turtle");
 				return;
-			} else if (cmd.hasOption('r')) {
-				SCHEMA.toRDFS(voc).write(System.out, "Turtle");
+			} else if (cmd.hasOption('R')) {
+				Model rdfs = SCHEMA.toRDFS(voc, ns);
+				rdfs.write(System.out, "Turtle");
 				return;
 			}
 		}

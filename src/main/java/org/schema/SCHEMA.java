@@ -162,7 +162,7 @@ public class SCHEMA {
 
 		return xsd.add(schemaorg.difference(toRemove));
 	}
-	
+
 	/**
 	 * rangeIncludes and domainIncludes are emulated by artificial super-classes.
 	 * Based on toXSD.
@@ -171,6 +171,18 @@ public class SCHEMA {
 	 * @return a copy of schemaorg using RDFS vocabulary only
 	 */
 	public static Model toRDFS(Model schemaorg) {
+		return toRDFS(schemaorg, getURI());
+	}
+	
+	/**
+	 * rangeIncludes and domainIncludes are emulated by artificial super-classes.
+	 * Based on toXSD.
+	 * 
+	 * @param schemaorg the original schema.org model
+	 * @param namespace if the vocabulary namespace is not schema.org
+	 * @return a copy of schemaorg using RDFS vocabulary only
+	 */
+	public static Model toRDFS(Model schemaorg, String namespace) {
     	Model rdfs = ModelFactory.createDefaultModel();
     	
     	Model xsd = toXSD(schemaorg);
@@ -216,7 +228,7 @@ public class SCHEMA {
     			}
     		}
     		
-			ClassSet domainSet = new ClassSet(domain);
+			ClassSet domainSet = new ClassSet(domain, namespace);
     		Resource domainUnion = domainSet.get();
     		rdfs.add(p, RDFS.domain, domainUnion);
     		rdfs.add(domainUnion, RDF.type, isDatatype(domainUnion) ? RDFS.Datatype : RDFS.Class);
@@ -224,7 +236,7 @@ public class SCHEMA {
     			rdfs.add(c, RDFS.subClassOf, domainUnion);
     		}
 
-			ClassSet rangeSet = new ClassSet(range);
+			ClassSet rangeSet = new ClassSet(range, namespace);
     		Resource rangeUnion = rangeSet.get();
     		rdfs.add(p, RDFS.range, rangeUnion);
     		rdfs.add(rangeUnion, RDF.type, isDatatype(rangeUnion) ? RDFS.Datatype : RDFS.Class);
@@ -237,7 +249,7 @@ public class SCHEMA {
 
     	return rdfs;
 	}
-    
+
 	/**
 	 * Based on the RDFS transformation, with following additions:
 	 * 
@@ -251,10 +263,28 @@ public class SCHEMA {
 	 * @param schemaorg the original schema.org model
 	 * @return a restrictive OWL ontology based on schemaorg
 	 */
-    public static Model toOWL(Model schemaorg) {
+	public static Model toOWL(Model schemaorg) {
+		return toOWL(schemaorg, getURI());
+	}
+    
+	/**
+	 * Based on the RDFS transformation, with following additions:
+	 * 
+	 * Properties are either redefined as object properties or datatype
+	 * properties and inverse property assertions are added.
+	 * 
+	 * Domains and ranges are defined as exclusive unions (owl:unionOf)
+	 * of disjoint classes and enumerations are rewritten as enumerated
+	 * classes (owl:oneOf).
+	 * 
+	 * @param schemaorg the original schema.org model
+	 * @param namespace if the vocabulary namespace is not schema.org
+	 * @return a restrictive OWL ontology based on schemaorg
+	 */
+    public static Model toOWL(Model schemaorg, String namespace) {
     	Model owl = ModelFactory.createDefaultModel();
     	
-    	Model rdfs = toRDFS(schemaorg);
+    	Model rdfs = toRDFS(schemaorg, namespace);
     	
     	// process classes: rdf:type, owl:disjointUnionOf, owl:oneOf
     	
@@ -294,7 +324,7 @@ public class SCHEMA {
     		
     		owl.add(p.listProperties(RDFS.subPropertyOf));
 
-    		if (p.hasProperty(inverseOf)) { // FIXME not in rdfs but in the original schemaorg
+    		if (p.hasProperty(inverseOf)) { // FIXME not in rdfs but in schemaorg
     			owl.add(p, OWL.inverseOf, p.getPropertyResourceValue(inverseOf));
     		}
     	}

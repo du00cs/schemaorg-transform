@@ -28,6 +28,10 @@ public class ClassSet {
 	private final Resource mResource;
 	
 	public ClassSet(List<Resource> set) {
+		this(set, SCHEMA.getURI());
+	}
+	
+	public ClassSet(List<Resource> set, String namespace) {
 		if (set.isEmpty()) {
 			mSet = new ArrayList<Resource>();
     		mResource = RDFS.Resource;
@@ -36,7 +40,7 @@ public class ClassSet {
 			mResource = set.get(0);
 		} else {
 			mSet = set;
-			mResource = ResourceFactory.createResource(SCHEMA.getURI() + getCanonicalName(set));
+			mResource = ResourceFactory.createResource(namespace + getCanonicalName(set));
 		}
 	}
 	
