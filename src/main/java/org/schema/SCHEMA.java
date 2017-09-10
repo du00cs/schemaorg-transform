@@ -20,10 +20,11 @@ import org.apache.jena.vocabulary.OWL;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.apache.jena.vocabulary.XSD;
+import org.schema.transform.Main;
 
 public class SCHEMA {
 	
-	private static final String BASE_URI = "http://schema.org/";
+	private static final String BASE_URI = "http://cnschema.org/";
 
 	public static final Resource Class = ResourceFactory.createResource(BASE_URI + "Class");
 	public static final Resource Thing = ResourceFactory.createResource(BASE_URI + "Thing");
@@ -186,7 +187,7 @@ public class SCHEMA {
     	Model rdfs = ModelFactory.createDefaultModel();
     	
     	Model xsd = toXSD(schemaorg);
-    	
+
     	// process classes: rdf:type, rdfs:subClassOf
 
     	StmtIterator classes = xsd.listStatements(null, RDF.type, RDFS.Class);
@@ -285,8 +286,8 @@ public class SCHEMA {
     	Model owl = ModelFactory.createDefaultModel();
     	
     	Model rdfs = toRDFS(schemaorg, namespace);
-    	
-    	// process classes: rdf:type, owl:disjointUnionOf, owl:oneOf
+
+		// process classes: rdf:type, owl:disjointUnionOf, owl:oneOf
     	
     	StmtIterator classes = rdfs.listStatements(null, RDF.type, RDFS.Class);
     	// note: owl:disjointUnionOf not defined in OWL package?
